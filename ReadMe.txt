@@ -1,0 +1,1 @@
+This is a power lotery estimation program ONLY FOR FUN.
