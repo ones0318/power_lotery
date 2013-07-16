@@ -13,6 +13,7 @@ class loteryLearner(object):
             for j in range(38):
                 self.result['next'][i+1][j+1] = 0
             self.result['first'][i+1] = 0
+        for i in range(8):
             self.result['special'][i+1] = 0
 
     def learn(self, lstLearningData):
@@ -84,27 +85,23 @@ class loteryPicker(object):
         for first in lstFirst:
             item = {'parent':None, 'number':first, 'next':None}
             res.append(item)
-            self._recursive_get_next(item, 1, order, count)
+            self._recursive_get_next(item, 1+1, order, count)
         ret = []
         for item in res:
             self._recursive_build_number_list(item, ret)
         for numberList in ret:
             prob = self.learned['special'].copy()
-            for key in numberList:
-                prob.pop(key)
             lstSpecial = self._find_max(prob, count)
             numberList.append(lstSpecial[0])
         return ret
 
 class loteryVerifier(object):
     def verify(self, lstVerifyData, lstPicked):
-        #total = 0
-        games = 0
+        totals = {}
         for verifyData in lstVerifyData:        
             with open(verifyData) as verify:
                 for line in verify:
                     total = 0
-                    games += 1
                     arr = line.split(',')
                     ordinary = []
                     for number in arr[3:9]:
@@ -143,24 +140,30 @@ class loteryVerifier(object):
                             total += 100
                         #if count > 4 or (sp == 1 and count > 0):
                         #    total += 1
-                    print 'game: '+arr[-1][:-1]+', earned: '+str(total)
-        return games, total
+                    #print 'game: '+arr[-1][:-1]+', earned: '+str(total)
+                    totals[arr[-1][:-1]] = total
+        return totals
 
 class randomPicker(object):
     def __init__(self):
         self.numbers = range(1, 39)
+        self.specials = range(1, 9)
 
     def _shuffle(self, count):
         for i in range(count):
             rand1 = int(random.random()*38)
             rand2 = int(random.random()*38)
             self.numbers[rand1], self.numbers[rand2] = self.numbers[rand2], self.numbers[rand1]
-
+            rand1 = int(random.random()*8)
+            rand2 = int(random.random()*8)
+            self.specials[rand1], self.specials[rand2] = self.specials[rand2], self.specials[rand1]
     def pick(self, count):
         res = []
         for i in range(count):
             self._shuffle(100)
-            res.append(self.numbers[:7])
+            numbers = self.numbers[:6]
+            numbers.append(self.specials[0])
+            res.append(numbers)
         return res
 
 
@@ -171,22 +174,34 @@ if __name__ == '__main__':
         res.write(json.dumps(result))
     picker = loteryPicker(result)
     rPicker = randomPicker()
-    lstKerker = picker.pick(3,2)
+    lstKerker = picker.pick(2,5)
     count = len(lstKerker)
     for numbers in lstKerker:
         print numbers
     lstRand = rPicker.pick(count)
-    print 'spent: '+str(100*len(lstKerker))
+    print 'spent: '+str(100*len(lstKerker)) + ' per game.'
     #print lstKerker
     verifier = loteryVerifier()
-    games, total = verifier.verify(['..\\data\\2013.csv'],lstKerker)
+    totals = verifier.verify(['..\\data\\2013.csv'],lstKerker)
+    wins = []
+    for key in totals.keys():
+        if totals[key] > 100*len(lstKerker):
+            wins.append(totals[key])
+    print 'win '+ str(len(wins))+ ', max: '+ str(max(wins))
     print '================'
-    #games, total = verifier.verify(['2013.csv'],lstRand)
-    #print 'spent: '+str(games*100*len(lstKerker))+'; games: '+str(games)
-    #beat = 0
-    #for i in range(20):
-    #    lstRand = rPicker.pick(count)
-    #    games, rTotal = verifier.verify(['2013.csv'],lstRand)
-    #    if total > rTotal:
-    #        beat += 1
-    #print 'earned: '+str(total) + '; beat: ' + str(beat) + '/20'
+    #totals = verifier.verify(['..\\data\\2013.csv'],lstRand)
+    for i in range(20):
+        beat = 0
+        lstRand = rPicker.pick(count)
+        rTotals = verifier.verify(['..\\data\\2013.csv'],lstRand)
+        rwins = []
+        for key in totals.keys():
+            if totals[key] > rTotals[key]:
+                beat += 1
+            if rTotals[key] > 100*len(lstKerker):
+                rwins.append(rTotals[key])
+        try:
+            print 'run ' + str(i) + ', rwin '+ str(len(rwins))+ ', max: '+ str(max(rwins))
+        except:
+            print 'run ' + str(i) + ', rwin '+ str(len(rwins))
+        #print 'run ' + str(i) + ', beat random ' + str(beat) + ' times in ' + str(len(totals.keys())) + ' games.'
